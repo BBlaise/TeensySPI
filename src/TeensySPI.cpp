@@ -1,5 +1,5 @@
 /*
- * Teensyp_spi->cpp
+ * TeensySPI.cpp
  *
  *  Created on: Jun 7, 2020
  *      Author: Bryan
@@ -12,18 +12,19 @@
 
 //#include <stdint.h>
 
-// Constructor
-//TeensySPI::TeensySPI(){}
+// Store the SPI bus supplied by the caller.
 TeensySPI::TeensySPI(SPIClass* p_spi_bus_){
 	p_spi_bus = p_spi_bus_;
 }
-// Deconstructor
+// Leave the caller-owned SPI bus in place.
 TeensySPI::~TeensySPI(){}
 
+// Drive the selected GPIO pin high.
 void TeensySPI::pinHigh(int* p_pin){
 	digitalWrite(*p_pin, HIGH);
 }
 
+// Drive the selected GPIO pin low.
 void TeensySPI::pinLow(int* p_pin){
 	digitalWrite(*p_pin, LOW);
 }
@@ -43,7 +44,7 @@ void TeensySPI::spiWriteRegister(int* slave_select, uint8_t address, uint16_t tx
 	digitalWrite(*slave_select, LOW);
 
 	p_spi_bus->transfer(address);
-	p_spi_bus->transfer16(tx_bytes);
+	p_spi_bus->transfer16(tx_bytes);  // Uses the bit order set on the SPI bus.
 
 	digitalWrite(*slave_select, HIGH);
 }
@@ -53,7 +54,7 @@ void TeensySPI::spiWriteRegister(int* slave_select, uint16_t address, uint16_t t
 	digitalWrite(*slave_select, LOW);
 
 	p_spi_bus->transfer16(address);
-	p_spi_bus->transfer16(tx_bytes);
+	p_spi_bus->transfer16(tx_bytes);  // Uses the bit order set on the SPI bus.
 
 	digitalWrite(*slave_select, HIGH);
 }
@@ -82,8 +83,9 @@ void TeensySPI::spiWriteRegister(int* slave_select, uint16_t address, uint8_t* t
 	digitalWrite(*slave_select, HIGH);
 }
 
+// Send an 8-bit register address and clock in one byte.
 uint8_t TeensySPI::spiReadRegister(int* slave_select, uint8_t address){
-	uint8_t blank_tx = 0x00;
+	uint8_t blank_tx = 0x00;  // SPI needs a transmitted byte to clock in a received byte.
 	digitalWrite(*slave_select, LOW);
 
 	p_spi_bus->transfer(address);
@@ -93,8 +95,9 @@ uint8_t TeensySPI::spiReadRegister(int* slave_select, uint8_t address){
 	return rx_byte;
 }
 
+// Send an 8-bit register address and clock in a buffer under the same chip select.
 void TeensySPI::spiReadRegister(int* slave_select, uint8_t address, uint8_t* rx_bytes, int n_rx_bytes){
-	uint8_t blank_tx = 0x00;
+	uint8_t blank_tx = 0x00;  // SPI needs a transmitted byte to clock in a received byte.
 	digitalWrite(*slave_select, LOW);
 
 	p_spi_bus->transfer(address);
@@ -104,6 +107,7 @@ void TeensySPI::spiReadRegister(int* slave_select, uint8_t address, uint8_t* rx_
 	digitalWrite(*slave_select, HIGH);
 }
 
+// Send a single byte under one chip-select assertion.
 void TeensySPI::spiWrite(int* slave_select, uint8_t tx_byte){
 	digitalWrite(*slave_select, LOW);
 
@@ -112,6 +116,7 @@ void TeensySPI::spiWrite(int* slave_select, uint8_t tx_byte){
 	digitalWrite(*slave_select, HIGH);
 }
 
+// Send a buffer under one chip-select assertion.
 void TeensySPI::spiWrite(int* slave_select, uint8_t* tx_bytes, int n_bytes){
 	digitalWrite(*slave_select, LOW);
 
@@ -121,9 +126,9 @@ void TeensySPI::spiWrite(int* slave_select, uint8_t* tx_bytes, int n_bytes){
 	digitalWrite(*slave_select, HIGH);
 }
 
+// Clock in one byte by transmitting a dummy zero.
 uint8_t TeensySPI::spiRead(int* slave_select){
-	// Not sure how useful this function is
-	uint8_t blank_tx = 0x00;
+	uint8_t blank_tx = 0x00;  // SPI needs a transmitted byte to clock in a received byte.
 	digitalWrite(*slave_select, LOW);
 
 	uint8_t rx_byte = p_spi_bus->transfer(blank_tx);
@@ -132,8 +137,9 @@ uint8_t TeensySPI::spiRead(int* slave_select){
 	return rx_byte;
 }
 
+// Clock in a buffer by transmitting one dummy zero per byte.
 void TeensySPI::spiRead(int* slave_select, uint8_t* rx_bytes, int n_bytes){
-	uint8_t blank_tx = 0x00;
+	uint8_t blank_tx = 0x00;  // SPI needs a transmitted byte to clock in a received byte.
 	digitalWrite(*slave_select, LOW);
 	for(int ii = 0; ii < n_bytes; ii++){
 		rx_bytes[ii] = p_spi_bus->transfer(blank_tx);
@@ -141,6 +147,7 @@ void TeensySPI::spiRead(int* slave_select, uint8_t* rx_bytes, int n_bytes){
 	digitalWrite(*slave_select, HIGH);
 }
 
+// Send and receive one byte in parallel on each transfer.
 void TeensySPI::spiExchange(int* slave_select, uint8_t* tx_bytes, uint8_t* rx_bytes, int n_bytes){
 	digitalWrite(*slave_select, LOW);
 	for(int ii = 0; ii < n_bytes; ii++){
@@ -149,8 +156,9 @@ void TeensySPI::spiExchange(int* slave_select, uint8_t* tx_bytes, uint8_t* rx_by
 	digitalWrite(*slave_select, HIGH);
 }
 
+// Alternate each outgoing byte with a separate transfer to receive its response.
 void TeensySPI::spiAlternate(int* slave_select, uint8_t* tx_bytes, uint8_t* rx_bytes, int n_bytes){
-	uint8_t blank_tx = 0x00;
+	uint8_t blank_tx = 0x00;  // SPI needs a transmitted byte to clock in a received byte.
 	digitalWrite(*slave_select, LOW);
 	for(int ii = 0; ii < n_bytes; ii++){
 		p_spi_bus->transfer(tx_bytes[ii]);
@@ -159,8 +167,9 @@ void TeensySPI::spiAlternate(int* slave_select, uint8_t* tx_bytes, uint8_t* rx_b
 	digitalWrite(*slave_select, HIGH);
 }
 
+// Send the command bytes, then clock in the response while chip select stays low.
 void TeensySPI::spiWriteThenRead(int* slave_select, uint8_t* tx_bytes, int n_tx_bytes, uint8_t* rx_bytes, int n_rx_bytes){
-	uint8_t blank_tx = 0x00;
+	uint8_t blank_tx = 0x00;  // SPI needs a transmitted byte to clock in a received byte.
 	digitalWrite(*slave_select, LOW);
 	// digitalWrite(6, LOW);
 	// Serial.print("slave_select_pin: \t"); Serial.println(*slave_select);
